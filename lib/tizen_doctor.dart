@@ -4,16 +4,15 @@
 
 import 'package:file/file.dart';
 import 'package:flutter_tools/src/android/android_workflow.dart';
-import 'package:flutter_tools/src/base/common.dart';
 import 'package:flutter_tools/src/base/context.dart';
 import 'package:flutter_tools/src/base/logger.dart';
 import 'package:flutter_tools/src/base/os.dart';
 import 'package:flutter_tools/src/base/process.dart';
 import 'package:flutter_tools/src/base/user_messages.dart';
 import 'package:flutter_tools/src/base/version.dart';
-import 'package:flutter_tools/src/cache.dart';
 import 'package:flutter_tools/src/doctor.dart';
 import 'package:flutter_tools/src/doctor_validator.dart';
+import 'package:flutter_tools/src/globals.dart' as globals;
 import 'package:flutter_tools/src/version.dart';
 import 'package:process/process.dart';
 
@@ -102,10 +101,7 @@ class TizenValidator extends DoctorValidator {
   Future<ValidationResult> validate() async {
     final List<ValidationMessage> messages = <ValidationMessage>[];
 
-    final FlutterVersion version = _FlutterTizenVersion(
-      workingDirectory: _fileSystem.directory(Cache.flutterRoot).parent,
-      processUtils: _processUtils,
-    );
+    final FlutterVersion version = globals.flutterVersion;
     messages.add(ValidationMessage(_userMessages.flutterRevision(
       version.frameworkRevisionShort,
       version.frameworkAge,
@@ -196,49 +192,4 @@ class TizenWorkflow extends Workflow {
 
   @override
   bool get canListEmulators => canListDevices && _tizenSdk!.emCli.existsSync();
-}
-
-class _FlutterTizenVersion extends FlutterVersion {
-  _FlutterTizenVersion({
-    required Directory workingDirectory,
-    required ProcessUtils processUtils,
-  })  : _workingDirectory = workingDirectory,
-        _processUtils = processUtils,
-        super(workingDirectory: workingDirectory.path);
-
-  final Directory _workingDirectory;
-  final ProcessUtils _processUtils;
-
-  /// See: [Cache.getVersionFor] in `cache.dart`
-  String? _getVersionFor(String artifactName) {
-    final File versionFile = _workingDirectory
-        .childDirectory('bin')
-        .childDirectory('internal')
-        .childFile('$artifactName.version');
-    return versionFile.existsSync()
-        ? versionFile.readAsStringSync().trim()
-        : null;
-  }
-
-  /// Source: [Cache.engineRevision] in `cache.dart`
-  @override
-  String get engineRevision {
-    final String? engineRevision = _getVersionFor('engine');
-    if (engineRevision == null) {
-      throwToolExit('Could not determine engine revision.');
-    }
-    return engineRevision;
-  }
-
-  /// See: [_runGit] in `version.dart`
-  String _runGit(String command) => _processUtils
-      .runSync(command.split(' '), workingDirectory: _workingDirectory.path)
-      .stdout
-      .trim();
-
-  /// This should be overriden because [FlutterVersion._gitCommitDate] runs
-  /// the git log command in the [Cache.flutterRoot] directory.
-  @override
-  String get frameworkCommitDate => _runGit(
-      'git -c log.showSignature=false log -n 1 --pretty=format:%ad --date=iso');
 }
